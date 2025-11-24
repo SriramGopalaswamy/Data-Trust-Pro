@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { generateSHA256 } from '../utils/crypto';
-import { ShieldCheck, Info, CheckCircle } from 'lucide-react';
+import { generateSHA256, generateFileHash } from '../utils/crypto';
+import { ShieldCheck, Info, CheckCircle, ArrowRight, ArrowLeft, Upload, FileText } from 'lucide-react';
 
 export const ConsentDemo: React.FC = () => {
   const [formData, setFormData] = useState({ name: '', email: '', phone: '' });
   const [consents, setConsents] = useState({ marketing: false, analytics: false });
+  const [artifacts, setArtifacts] = useState<{marketing?: {name: string, hash: string}, analytics?: {name: string, hash: string}}>({});
   const [meta, setMeta] = useState<any>(null);
-  const [proof, setProof] = useState<any>(null);
-  const [step, setStep] = useState(1);
+  const [proof, setProof] = useState<{raw: any, hash: string} | null>(null);
+  const [step, setStep] = useState(1); // 1: Identity, 2: Consent, 3: Evidence, 4: Proof
 
   // Simulate collecting Metadata on mount
   useEffect(() => {
@@ -30,13 +31,35 @@ export const ConsentDemo: React.FC = () => {
     setConsents(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleIdentitySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setStep(2);
+  };
+
+  const handleConsentSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setStep(3);
+  };
+
+  const handleFileUpload = async (key: 'marketing' | 'analytics', e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+        const file = e.target.files[0];
+        const hash = await generateFileHash(file);
+        setArtifacts(prev => ({
+            ...prev,
+            [key]: { name: file.name, hash: hash }
+        }));
+    }
+  };
+
+  const handleFinalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Construct the Artifact
     const artifact = {
       principal: formData,
       consents_granted: consents,
+      evidence: artifacts,
       notice_version: "v2.4_2023_10_01", // The displayed version
       metadata: { ...meta, capture_time: new Date().toISOString() },
       channel: "WEB_FORM"
@@ -50,13 +73,19 @@ export const ConsentDemo: React.FC = () => {
       raw: artifact,
       hash: hash
     });
-    setStep(2);
+    setStep(4);
+  };
+
+  const isEvidenceComplete = () => {
+      if (consents.marketing && !artifacts.marketing) return false;
+      if (consents.analytics && !artifacts.analytics) return false;
+      return true;
   };
 
   return (
     <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
       {/* Left: User Facing Form */}
-      <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden flex flex-col">
         <div className="bg-indigo-600 p-6 text-white">
           <h2 className="text-xl font-bold flex items-center gap-2">
             <ShieldCheck className="text-indigo-200" /> 
@@ -64,19 +93,29 @@ export const ConsentDemo: React.FC = () => {
           </h2>
           <p className="text-indigo-100 text-sm mt-1">Example of DPDP-compliant capture flow</p>
         </div>
+
+        {/* Step Indicator */}
+        <div className="flex border-b border-slate-100">
+            <div className={`flex-1 p-3 text-center text-xs font-bold ${step >= 1 ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'}`}>1. Identity</div>
+            <div className={`flex-1 p-3 text-center text-xs font-bold ${step >= 2 ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'}`}>2. Consent</div>
+            <div className={`flex-1 p-3 text-center text-xs font-bold ${step >= 3 ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'}`}>3. Evidence</div>
+            <div className={`flex-1 p-3 text-center text-xs font-bold ${step >= 4 ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'}`}>4. Proof</div>
+        </div>
         
-        <div className="p-8">
-          {step === 1 ? (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 gap-4">
+        <div className="p-8 flex-1">
+          {step === 1 && (
+            <form onSubmit={handleIdentitySubmit} className="space-y-6">
+              <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
                   <input 
                     required
                     type="text" 
-                    className="w-full border border-slate-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+                    autoComplete="name"
+                    className="w-full border border-slate-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                     value={formData.name}
                     onChange={e => setFormData({...formData, name: e.target.value})}
+                    placeholder="e.g. Anjali Singh"
                   />
                 </div>
                 <div>
@@ -84,26 +123,57 @@ export const ConsentDemo: React.FC = () => {
                   <input 
                     required
                     type="email" 
-                    className="w-full border border-slate-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+                    autoComplete="email"
+                    className="w-full border border-slate-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                     value={formData.email}
                     onChange={e => setFormData({...formData, email: e.target.value})}
+                    placeholder="anjali@example.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Phone Number</label>
+                  <input 
+                    required
+                    type="tel" 
+                    autoComplete="tel"
+                    className="w-full border border-slate-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                    value={formData.phone}
+                    onChange={e => setFormData({...formData, phone: e.target.value})}
+                    placeholder="+91 98765 43210"
                   />
                 </div>
               </div>
 
-              <div className="border-t border-slate-200 pt-4 mt-6">
-                <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center">
-                   Privacy Notice <span className="ml-2 text-xs font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded">v2.4</span>
+              <button 
+                type="submit" 
+                className="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
+              >
+                Next Step <ArrowRight size={16} />
+              </button>
+            </form>
+          )}
+
+          {step === 2 && (
+             <form onSubmit={handleConsentSubmit} className="space-y-6">
+               
+               <div className="bg-slate-50 p-4 rounded border border-slate-200 mb-4">
+                  <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Verifying Identity For</h4>
+                  <div className="text-sm text-slate-900 font-medium">{formData.name}</div>
+                  <div className="text-xs text-slate-500">{formData.email} • {formData.phone}</div>
+               </div>
+
+                <h3 className="text-sm font-bold text-slate-900 flex items-center">
+                   Privacy Notice <span className="ml-2 text-[10px] font-normal text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">v2.4</span>
                 </h3>
-                <div className="text-xs text-slate-500 h-24 overflow-y-auto bg-slate-50 p-3 rounded border border-slate-200 mb-4">
-                  <p><strong>1. Purpose:</strong> We collect your name and email to send you our weekly newsletter (Purpose A) and product updates.</p>
-                  <p className="mt-2"><strong>2. Data Processing:</strong> Your data is stored in India. We do not sell your data.</p>
-                  <p className="mt-2"><strong>3. Your Rights:</strong> You may withdraw consent at any time via the unsubscribe link or our DSR portal.</p>
-                  <p className="mt-2"><strong>4. Grievance Officer:</strong> Contact privacy@datatrust.com.</p>
+                <div className="text-xs text-slate-500 h-32 overflow-y-auto bg-slate-50 p-3 rounded border border-slate-200 leading-relaxed">
+                  <p><strong>1. Purpose:</strong> We collect your name, email, and phone to provide service updates and, if consented, marketing offers.</p>
+                  <p className="mt-2"><strong>2. Retention:</strong> Data is retained for 12 months unless withdrawn.</p>
+                  <p className="mt-2"><strong>3. Rights:</strong> Access or withdraw consent via our portal.</p>
+                  <p className="mt-2"><strong>4. Contact:</strong> DPO@datatrust.com for grievances.</p>
                 </div>
 
                 <div className="space-y-3">
-                  <label className="flex items-start space-x-3 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors">
+                  <label className={`flex items-start space-x-3 p-3 border rounded-lg cursor-pointer transition-colors ${consents.marketing ? 'bg-indigo-50 border-indigo-200' : 'border-slate-200 hover:bg-slate-50'}`}>
                     <input 
                       type="checkbox" 
                       className="mt-1 w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
@@ -111,12 +181,12 @@ export const ConsentDemo: React.FC = () => {
                       onChange={() => handleConsentChange('marketing')}
                     />
                     <div className="text-sm">
-                      <span className="font-medium text-slate-900">I agree to receive marketing newsletters.</span>
-                      <p className="text-slate-500 text-xs mt-0.5">Optional. Valid for 12 months.</p>
+                      <span className="font-medium text-slate-900">Marketing Updates</span>
+                      <p className="text-slate-500 text-xs mt-0.5">Receive offers via Email/SMS.</p>
                     </div>
                   </label>
 
-                  <label className="flex items-start space-x-3 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors">
+                  <label className={`flex items-start space-x-3 p-3 border rounded-lg cursor-pointer transition-colors ${consents.analytics ? 'bg-indigo-50 border-indigo-200' : 'border-slate-200 hover:bg-slate-50'}`}>
                     <input 
                       type="checkbox" 
                       className="mt-1 w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
@@ -124,33 +194,112 @@ export const ConsentDemo: React.FC = () => {
                       onChange={() => handleConsentChange('analytics')}
                     />
                     <div className="text-sm">
-                      <span className="font-medium text-slate-900">I agree to usage analytics.</span>
-                      <p className="text-slate-500 text-xs mt-0.5">Helps us improve. Anonymized after 6 months.</p>
+                      <span className="font-medium text-slate-900">Product Analytics</span>
+                      <p className="text-slate-500 text-xs mt-0.5">Allow usage tracking for improvements.</p>
                     </div>
                   </label>
                 </div>
-              </div>
 
-              <button 
-                type="submit" 
-                disabled={!consents.marketing && !consents.analytics}
-                className="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed"
-              >
-                Confirm & Grant Consent
-              </button>
+                <div className="flex gap-3">
+                    <button 
+                        type="button" 
+                        onClick={() => setStep(1)}
+                        className="w-1/3 bg-white border border-slate-300 text-slate-700 py-2.5 rounded-lg font-medium hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
+                    >
+                        <ArrowLeft size={16} /> Back
+                    </button>
+                    <button 
+                        type="submit" 
+                        disabled={!consents.marketing && !consents.analytics}
+                        className="flex-1 bg-indigo-600 text-white py-2.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed"
+                    >
+                        Next: Evidence <ArrowRight size={16} />
+                    </button>
+                </div>
             </form>
-          ) : (
-            <div className="text-center py-12">
+          )}
+
+          {step === 3 && (
+             <form onSubmit={handleFinalSubmit} className="space-y-6">
+               <div className="bg-amber-50 p-4 rounded border border-amber-200 mb-6 flex gap-3">
+                  <Info className="text-amber-600 flex-shrink-0" size={20} />
+                  <div>
+                      <h4 className="text-sm font-bold text-amber-800">Proof of Consent Required</h4>
+                      <p className="text-xs text-amber-700 mt-1">
+                          For compliance with DPDP Act, please upload supporting evidence (e.g. signed form, email confirmation, or audio recording) for the selected purposes.
+                      </p>
+                  </div>
+               </div>
+
+               <div className="space-y-6">
+                   {consents.marketing && (
+                       <div className="border border-slate-200 rounded-lg p-4">
+                           <h4 className="font-medium text-slate-900 mb-2">Evidence for Marketing Updates</h4>
+                           <div className="flex items-center gap-3">
+                               <input 
+                                    type="file" 
+                                    className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                                    onChange={(e) => handleFileUpload('marketing', e)}
+                                />
+                                {artifacts.marketing && <CheckCircle className="text-green-500" size={20} />}
+                           </div>
+                           {artifacts.marketing && <div className="text-[10px] text-slate-400 font-mono mt-1 break-all">Hash: {artifacts.marketing.hash.substring(0, 30)}...</div>}
+                       </div>
+                   )}
+
+                   {consents.analytics && (
+                       <div className="border border-slate-200 rounded-lg p-4">
+                           <h4 className="font-medium text-slate-900 mb-2">Evidence for Product Analytics</h4>
+                           <div className="flex items-center gap-3">
+                               <input 
+                                    type="file" 
+                                    className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                                    onChange={(e) => handleFileUpload('analytics', e)}
+                                />
+                                {artifacts.analytics && <CheckCircle className="text-green-500" size={20} />}
+                           </div>
+                           {artifacts.analytics && <div className="text-[10px] text-slate-400 font-mono mt-1 break-all">Hash: {artifacts.analytics.hash.substring(0, 30)}...</div>}
+                       </div>
+                   )}
+               </div>
+
+                <div className="flex gap-3">
+                    <button 
+                        type="button" 
+                        onClick={() => setStep(2)}
+                        className="w-1/3 bg-white border border-slate-300 text-slate-700 py-2.5 rounded-lg font-medium hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
+                    >
+                        <ArrowLeft size={16} /> Back
+                    </button>
+                    <button 
+                        type="submit" 
+                        disabled={!isEvidenceComplete()}
+                        className="flex-1 bg-indigo-600 text-white py-2.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed"
+                    >
+                        Finalize & Record
+                    </button>
+                </div>
+             </form>
+          )}
+          
+          {step === 4 && (
+            <div className="text-center py-8">
               <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle size={32} />
               </div>
               <h3 className="text-xl font-bold text-slate-900">Consent Recorded</h3>
-              <p className="text-slate-600 mt-2 text-sm">A verifiable proof artifact has been generated.</p>
+              <p className="text-slate-600 mt-2 text-sm">A verifiable proof artifact has been generated and stored.</p>
               <button 
-                onClick={() => setStep(1)}
+                onClick={() => {
+                    setStep(1); 
+                    setFormData({name:'', email:'', phone:''}); 
+                    setConsents({marketing:false, analytics:false});
+                    setArtifacts({});
+                    setProof(null);
+                }}
                 className="mt-6 text-indigo-600 font-medium text-sm hover:underline"
               >
-                Reset Demo
+                Start New Capture
               </button>
             </div>
           )}
@@ -166,28 +315,52 @@ export const ConsentDemo: React.FC = () => {
           
           <div className="space-y-4">
             <div>
-                <label className="text-xs font-semibold uppercase text-slate-500">Detected Metadata (Auto-captured)</label>
+                <label className="text-xs font-semibold uppercase text-slate-500">Live Context</label>
+                <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] font-mono text-slate-400">
+                    <div className="bg-black/30 p-2 rounded">Step: {step}/4</div>
+                    <div className="bg-black/30 p-2 rounded">IP: {meta?.ip || '...'}</div>
+                </div>
+            </div>
+
+            <div>
+                <label className="text-xs font-semibold uppercase text-slate-500">Input Stream</label>
                 <pre className="mt-2 text-[10px] font-mono bg-black/50 p-3 rounded text-emerald-400 overflow-x-auto">
-                    {JSON.stringify(meta, null, 2) || 'Waiting for initialization...'}
+                    {JSON.stringify({ ...formData, ...consents }, null, 2)}
                 </pre>
             </div>
 
-            {step === 2 && proof && (
+            {Object.keys(artifacts).length > 0 && (
+                <div>
+                    <label className="text-xs font-semibold uppercase text-slate-500">Evidence Hashes</label>
+                    <div className="mt-2 space-y-1">
+                        {Object.entries(artifacts).map(([k, v]) => {
+                           const artifact = v as { name: string, hash: string } | undefined;
+                           if (!artifact) return null;
+                           return (
+                            <div key={k} className="bg-black/30 p-2 rounded flex justify-between items-center">
+                                <span className="text-[10px] text-slate-400 uppercase">{k}</span>
+                                <span className="text-[10px] font-mono text-amber-400">{artifact.hash.substring(0, 12)}...</span>
+                            </div>
+                        )})}
+                    </div>
+                </div>
+            )}
+
+            {step === 4 && proof && (
                 <>
-                    <div>
-                        <label className="text-xs font-semibold uppercase text-slate-500">Generated Artifact (JSON)</label>
-                        <pre className="mt-2 text-[10px] font-mono bg-black/50 p-3 rounded text-blue-300 overflow-x-auto h-48 scrollbar-hide">
+                    <div className="pt-4 border-t border-slate-800">
+                        <label className="text-xs font-semibold uppercase text-slate-500 flex items-center gap-2">
+                            <ShieldCheck size={12} className="text-amber-500"/> Final Artifact
+                        </label>
+                        <pre className="mt-2 text-[10px] font-mono bg-black/50 p-3 rounded text-blue-300 overflow-x-auto h-64 scrollbar-hide">
                             {JSON.stringify(proof.raw, null, 2)}
                         </pre>
                     </div>
                     <div>
-                        <label className="text-xs font-semibold uppercase text-slate-500">Immutable Proof Hash (SHA-256)</label>
+                        <label className="text-xs font-semibold uppercase text-slate-500">Proof Hash</label>
                         <div className="mt-2 text-[10px] font-mono bg-slate-800 p-3 rounded text-amber-400 break-all border border-slate-700">
                             {proof.hash}
                         </div>
-                        <p className="text-[10px] text-slate-500 mt-1">
-                            *This hash is stored in the DB and can be written to a blockchain ledger for non-repudiation.
-                        </p>
                     </div>
                 </>
             )}
