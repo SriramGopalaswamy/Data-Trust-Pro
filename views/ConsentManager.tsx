@@ -1,16 +1,27 @@
 import React, { useState } from 'react';
 import { MOCK_CONSENTS } from '../constants';
-import { ConsentStatus, ConsentRecord } from '../types';
+import { ConsentStatus, ConsentRecord, UserRole } from '../types';
 import { formatDate } from '../utils/crypto';
-import { Eye, Download, Trash2, History } from 'lucide-react';
+import { Eye, Download, Trash2, History, Lock } from 'lucide-react';
 import { ConsentHistory } from './ConsentHistory';
 
-export const ConsentManager: React.FC = () => {
+interface ConsentManagerProps {
+    role: UserRole;
+}
+
+export const ConsentManager: React.FC<ConsentManagerProps> = ({ role }) => {
   const [consents, setConsents] = useState(MOCK_CONSENTS);
   const [selectedConsent, setSelectedConsent] = useState<ConsentRecord | null>(null);
 
   const handleWithdraw = (id: string) => {
-    if (!window.confirm('Are you sure? This will trigger the immediate cessation workflow.')) return;
+    // strict RBAC check
+    if (role === 'AUDITOR') {
+        alert("Access Denied: Auditors have read-only privileges.");
+        return;
+    }
+    
+    if (!window.confirm('Are you sure? This will trigger the immediate cessation workflow (Section 6(4)).')) return;
+    
     setConsents(prev => prev.map(c => 
       c.id === id 
         ? { ...c, status: ConsentStatus.WITHDRAWN, retentionDate: new Date().toISOString() } 
@@ -30,6 +41,11 @@ export const ConsentManager: React.FC = () => {
             <p className="text-xs text-slate-500">Master ledger of all principal consents</p>
         </div>
         <div className="flex gap-2">
+            {role === 'AUDITOR' && (
+                 <div className="px-3 py-2 bg-amber-50 text-amber-700 text-xs font-medium rounded border border-amber-200 flex items-center gap-2 mr-2" title="You cannot modify data in this view">
+                    <Lock size={12} /> Read Only View
+                </div>
+            )}
             <button className="px-4 py-2 bg-slate-100 text-slate-700 text-sm font-medium rounded hover:bg-slate-200 flex items-center gap-2">
                 <Download size={16} /> Export CSV
             </button>
@@ -91,7 +107,8 @@ export const ConsentManager: React.FC = () => {
                                 >
                                     <History size={16} />
                                 </button>
-                                {consent.status === ConsentStatus.ACTIVE && (
+                                {/* Only ADMIN can see Withdraw Action */}
+                                {role === 'ADMIN' && consent.status === ConsentStatus.ACTIVE && (
                                     <button 
                                         onClick={() => handleWithdraw(consent.id)}
                                         className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded" 

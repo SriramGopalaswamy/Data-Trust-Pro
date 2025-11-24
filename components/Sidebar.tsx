@@ -1,20 +1,25 @@
 import React from 'react';
 import { LayoutDashboard, FileText, Users, ShieldAlert, Database, BookOpen } from 'lucide-react';
+import { UserRole } from '../types';
 
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  role: UserRole;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
-  const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'consents', label: 'Consent Manager', icon: FileText },
-    { id: 'capture', label: 'Live Capture Demo', icon: Users },
-    { id: 'dsr', label: 'DSR Workflow', icon: ShieldAlert },
-    { id: 'schema', label: 'System Design', icon: Database },
-    { id: 'compliance', label: 'Compliance Map', icon: BookOpen },
+export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, role }) => {
+  const allMenuItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['ADMIN'] },
+    { id: 'consents', label: 'Consent Manager', icon: FileText, roles: ['ADMIN', 'AUDITOR'] },
+    { id: 'capture', label: 'Live Capture Demo', icon: Users, roles: ['ADMIN'] },
+    { id: 'dsr', label: 'DSR Workflow', icon: ShieldAlert, roles: ['ADMIN'] },
+    { id: 'schema', label: 'System Design', icon: Database, roles: ['ADMIN'] },
+    { id: 'compliance', label: 'Compliance Map', icon: BookOpen, roles: ['ADMIN', 'AUDITOR'] },
   ];
+
+  // Filter items based on current role
+  const menuItems = allMenuItems.filter(item => item.roles.includes(role));
 
   return (
     <div className="w-64 bg-slate-900 text-slate-300 h-screen flex flex-col fixed left-0 top-0 border-r border-slate-800 z-10">
@@ -58,6 +63,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
                 <span>Audit Log</span>
                 <span className="text-green-400">Immutable</span>
             </div>
+             {role === 'AUDITOR' && (
+                <div className="mt-2 pt-2 border-t border-slate-700 text-xs text-amber-500 font-mono">
+                    Mode: READ-ONLY
+                </div>
+            )}
         </div>
       </div>
     </div>

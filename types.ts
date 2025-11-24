@@ -12,6 +12,8 @@ export enum ConsentStatus {
     IVR = 'IVR',
     OFFLINE = 'OFFLINE'
   }
+
+  export type UserRole = 'ADMIN' | 'AUDITOR';
   
   export interface ConsentRecord {
     id: string;
