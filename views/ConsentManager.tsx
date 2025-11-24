@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { MOCK_CONSENTS } from '../constants';
-import { ConsentStatus } from '../types';
+import { ConsentStatus, ConsentRecord } from '../types';
 import { formatDate } from '../utils/crypto';
-import { Eye, Download, Trash2 } from 'lucide-react';
+import { Eye, Download, Trash2, History } from 'lucide-react';
+import { ConsentHistory } from './ConsentHistory';
 
 export const ConsentManager: React.FC = () => {
   const [consents, setConsents] = useState(MOCK_CONSENTS);
+  const [selectedConsent, setSelectedConsent] = useState<ConsentRecord | null>(null);
 
   const handleWithdraw = (id: string) => {
     if (!window.confirm('Are you sure? This will trigger the immediate cessation workflow.')) return;
@@ -15,6 +17,10 @@ export const ConsentManager: React.FC = () => {
         : c
     ));
   };
+
+  if (selectedConsent) {
+      return <ConsentHistory consent={selectedConsent} onBack={() => setSelectedConsent(null)} />;
+  }
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -71,14 +77,24 @@ export const ConsentManager: React.FC = () => {
                             </span>
                         </td>
                         <td className="px-6 py-4">
-                            <div className="flex items-center gap-3">
-                                <button className="text-slate-400 hover:text-indigo-600" title="View Proof Artifact">
+                            <div className="flex items-center gap-2">
+                                <button 
+                                    className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded" 
+                                    title="View Proof Artifact"
+                                >
                                     <Eye size={16} />
+                                </button>
+                                <button 
+                                    onClick={() => setSelectedConsent(consent)}
+                                    className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded" 
+                                    title="View Audit History"
+                                >
+                                    <History size={16} />
                                 </button>
                                 {consent.status === ConsentStatus.ACTIVE && (
                                     <button 
                                         onClick={() => handleWithdraw(consent.id)}
-                                        className="text-slate-400 hover:text-red-600" 
+                                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded" 
                                         title="Revoke Consent (Section 6(4))"
                                     >
                                         <Trash2 size={16} />

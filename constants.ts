@@ -1,4 +1,4 @@
-import { ConsentRecord, ConsentStatus, Channel, DSRRequest } from './types';
+import { ConsentRecord, ConsentStatus, Channel, DSRRequest, ConsentHistoryLog } from './types';
 
 export const MOCK_CONSENTS: ConsentRecord[] = [
   {
@@ -46,6 +46,48 @@ export const MOCK_CONSENTS: ConsentRecord[] = [
     proofHash: '9988776655...',
     retentionDate: '2023-10-15T09:00:00Z'
   }
+];
+
+export const MOCK_CONSENT_HISTORY: ConsentHistoryLog[] = [
+    {
+        id: 'hist_1',
+        consentId: 'cnt_829104',
+        action: 'CREATED',
+        timestamp: '2023-09-15T09:00:00Z',
+        actor: 'PRINCIPAL',
+        metadata: { ip: '103.21.12.4', userAgent: 'Mozilla/5.0 (iPhone)...' },
+        newHash: '9988776655...'
+    },
+    {
+        id: 'hist_2',
+        consentId: 'cnt_829104',
+        action: 'GRANTED',
+        timestamp: '2023-09-15T09:00:05Z',
+        actor: 'PRINCIPAL',
+        metadata: { ip: '103.21.12.4', userAgent: 'Mozilla/5.0 (iPhone)...' },
+        previousHash: '9988776655...',
+        newHash: 'aa77665544...'
+    },
+    {
+        id: 'hist_3',
+        consentId: 'cnt_829104',
+        action: 'WITHDRAWN',
+        timestamp: '2023-10-10T14:30:00Z',
+        actor: 'PRINCIPAL',
+        reason: 'Opt-out via Preference Center',
+        metadata: { ip: '103.21.12.4' },
+        previousHash: 'aa77665544...',
+        newHash: 'cc55443322...'
+    },
+    {
+        id: 'hist_4',
+        consentId: 'cnt_829102',
+        action: 'GRANTED',
+        timestamp: '2023-10-25T10:30:00Z',
+        actor: 'PRINCIPAL',
+        metadata: { ip: '103.21.12.4' },
+        newHash: 'a1b2c3d4e5f6...'
+    }
 ];
 
 export const MOCK_DSRS: DSRRequest[] = [

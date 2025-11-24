@@ -29,6 +29,22 @@ export enum ConsentStatus {
     retentionDate: string;
   }
   
+  export interface ConsentHistoryLog {
+    id: string;
+    consentId: string;
+    action: 'CREATED' | 'GRANTED' | 'WITHDRAWN' | 'EXPIRED' | 'RENEWED' | 'MODIFIED';
+    timestamp: string;
+    actor: 'PRINCIPAL' | 'SYSTEM' | 'ADMIN';
+    reason?: string;
+    metadata: {
+        ip?: string;
+        userAgent?: string;
+        location?: string;
+    };
+    previousHash?: string; // Blockchain chaining concept
+    newHash: string;
+  }
+  
   export interface DSRRequest {
     id: string;
     principalName: string;
